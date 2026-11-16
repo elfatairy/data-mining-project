@@ -1,7 +1,35 @@
 import pandas as pd
 
 def convert_to_vertical_format(df):
-    pass
+    vv = {}
+
+    for i in range(len(df)):
+        tid = int(df.iloc[i, 0])
+        itemsss = df.iloc[i, 1]
+
+
+
+        
+        listofitemss = itemsss.split(",")
+
+        for j in listofitemss:
+
+            if j not in vv:
+                vv[j] = set()
+
+     
+            vv[j].add(tid)
+
+
+
+    print("Vertical format:")
+    for z in vv:
+        print(z, ":", vv[z], "    support count =", len( vv[z]   ))
+
+
+
+    return vv
+
 
 def generate_frequent_itemsets(vertical_data, min_support):
     pass
