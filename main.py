@@ -1,6 +1,5 @@
 import pandas as pd
 import math
-from itertools import combinations
 
 def convert_to_vertical_format(df):
     vv = {}
@@ -103,8 +102,24 @@ def generate_frequent_itemsets(vertical_data, min_support,total_transactions):
 
     return frequent_itemsets
 
+def my_combinations(items, r):
+    result = []
+    def pick(start, current):
+        if len(current) == r:
+            result.append(tuple(current))
+            return
+
+        # test from start of the list
+        for i in range(start, len(items)):
+            current.append(items[i])      # get element
+            pick(i + 1, current)          # the next element
+            current.pop()                 # backtracking
+
+    pick(0, [])
+    return result
+
 def generate_association_rules(frequent_itemsets):
-        # Will Start from L2
+    # Will Start from L2
     rules = []
     for itemset, data in frequent_itemsets.items():
         # if L1 ignore
@@ -112,11 +127,13 @@ def generate_association_rules(frequent_itemsets):
             continue
         # L2 or more
         for n in range(1 , len(itemset)):
-            for l in combinations(sorted(itemset), n):         # Take Combinations from the item set at size n
+            for l in my_combinations(sorted(itemset), n):         # Take Combinations from the item set at size n
                 antecedent = frozenset(l)                      # convert to set to make subtraction
                 consequent = itemset - antecedent              # antecedent - > Condition      consequent -> result
+                print(set(antecedent), "->", set(consequent))
                 rules.append({"antecedent": antecedent, "consequent": consequent , "support": data["support_count"]}) # association rules antecedent given that consequent
     return rules
+
 
 def extract_strong_rules(association_rules, min_confidence):
     pass
