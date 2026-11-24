@@ -136,8 +136,12 @@ def generate_association_rules(frequent_itemsets):
     return rules
 
 
-def extract_strong_rules(association_rules, min_confidence):
-    pass
+def extract_strong_rules(association_rules, frequent_itemsets, min_confidence):
+    print("Strong rules:")
+    for rule in association_rules:
+        confidence = rule["support"] / frequent_itemsets[rule["antecedent"]]["support_count"]
+        if confidence >= min_confidence:
+            print(set(rule["antecedent"]), "->", set(rule["consequent"]), "with confidence =", confidence)
 
 def calculate_lift(association_rules, frequent_itemsets, total_transactions):
     pass
@@ -153,7 +157,7 @@ def main():
     vertical_data = convert_to_vertical_format(df)
     frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support,total_transactions)
     association_rules = generate_association_rules(frequent_itemsets)
-    extract_strong_rules(association_rules, min_confidence)
+    extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
     calculate_lift(association_rules, frequent_itemsets, total_transactions)
 
 main()
