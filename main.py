@@ -121,6 +121,7 @@ def my_combinations(items, r):
 def generate_association_rules(frequent_itemsets):
     # Will Start from L2
     rules = []
+    print(f"\nAssociation Rules:\n")
     for itemset, data in frequent_itemsets.items():
         # if L1 ignore
         if len(itemset) < 2:
