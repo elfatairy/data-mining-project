@@ -5,36 +5,34 @@ def convert_to_vertical_format(df):
     vv = {}
 
     for i in range(len(df)):
-        tid = int(df.iloc[i, 0])
+        raw_tid = df.iloc[i, 0]
+        tid = raw_tid.item() if hasattr(raw_tid, "item") else str(raw_tid).strip()
         itemsss = df.iloc[i, 1]
 
+        if pd.isna(itemsss):
+            continue
 
-
-        
-        listofitemss = itemsss.split(",")
+        listofitemss = str(itemsss).split(",")
 
         for j in listofitemss:
-
+            j = j.strip()
+            if not j:
+                continue
             if j not in vv:
                 vv[j] = set()
-
      
             vv[j].add(tid)
 
-
-
-    print("Vertical format:")
+    print("Vertical format: ")
     for z in vv:
-        print(z, ":", vv[z], "    support count =", len( vv[z]   ))
-
-
+        print(z, ": ", vv[z], "    support count = ", len(vv[z]))
 
     return vv
 
 
 def generate_frequent_itemsets(vertical_data, min_support,total_transactions):
    
-    min_support_count = math.ceil(min_support * total_transactions)
+    min_support_count = math.ceil(round(min_support * total_transactions, 10))
 
     frequent_itemsets = {}
     items = sorted(vertical_data.items())
@@ -53,7 +51,7 @@ def generate_frequent_itemsets(vertical_data, min_support,total_transactions):
 
             # Save the frequent itemset
             frequent_itemsets[frozenset(new_itemset)] = {
-                "tids": tids,
+                "tids": tids, 
                 "support_count": support_count
             }
 
@@ -136,24 +134,58 @@ def generate_association_rules(frequent_itemsets):
     return rules
 
 
-def extract_strong_rules(association_rules, min_confidence):
-    pass
+def extract_strong_rules(association_rules, frequent_itemsets, min_confidence):
+    strong_rules = []
+    print("\nStrong rules:")
+    for rule in association_rules:
+        confidence = rule["support"] / frequent_itemsets[rule["antecedent"]]["support_count"]
+        if confidence >= min_confidence:
+            strong_rules.append(rule)
+            print(set(rule["antecedent"]), "->", set(rule["consequent"]), "with confidence =", confidence)
+    return strong_rules
 
 def calculate_lift(association_rules, frequent_itemsets, total_transactions):
-    pass
+    print("\nLift:")
 
-min_support = 0.6
-min_confidence = 0.6
+    for rule in association_rules:
+        antecedent = rule["antecedent"]
+        consequent = rule["consequent"]
+
+        p_union = rule["support"] / total_transactions
+        p_a = frequent_itemsets[antecedent]["support_count"] / total_transactions
+        p_b = frequent_itemsets[consequent]["support_count"] / total_transactions
+
+        lift = p_union / (p_a * p_b) 
+        status = ""
+        if math.isclose(lift, 1.0):
+            status = "Independent"
+        elif lift < 1:
+            status = "Negative Dependent"
+        else:
+            status = "Positive Dependent"
+            
+        print(set(antecedent), "->", set(consequent),"with lift =", lift,"(",status,")")
+        
+
+
 file_name = "Horizontal_Format.xlsx"
 
 def main():
     df = pd.read_excel(file_name)
     total_transactions = df.shape[0]
-
     vertical_data = convert_to_vertical_format(df)
-    frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support,total_transactions)
-    association_rules = generate_association_rules(frequent_itemsets)
-    extract_strong_rules(association_rules, min_confidence)
-    calculate_lift(association_rules, frequent_itemsets, total_transactions)
+
+    while True:
+        min_support = float(input("\nEnter minimum support (0 to 1, e.g. 0.6): "))
+        min_confidence = float(input("Enter minimum confidence (0 to 1, e.g. 0.6): "))
+
+        frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support, total_transactions)
+        association_rules = generate_association_rules(frequent_itemsets)
+        strong_rules = extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
+        calculate_lift(association_rules, frequent_itemsets, total_transactions)
+
+        again = input("\nRun again with different values? (y/n): ").strip().lower()
+        if again != "y":
+            break
 
 main()
