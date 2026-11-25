@@ -5,19 +5,12 @@ def convert_to_vertical_format(df):
     vv = {}
 
     for i in range(len(df)):
-        raw_tid = df.iloc[i, 0]
-        tid = raw_tid.item() if hasattr(raw_tid, "item") else str(raw_tid).strip()
+        tid = int(df.iloc[i, 0])
         itemsss = df.iloc[i, 1]
 
-        if pd.isna(itemsss):
-            continue
-
-        listofitemss = str(itemsss).split(",")
+        listofitemss = itemsss.split(",")
 
         for j in listofitemss:
-            j = j.strip()
-            if not j:
-                continue
             if j not in vv:
                 vv[j] = set()
      
@@ -168,24 +161,19 @@ def calculate_lift(association_rules, frequent_itemsets, total_transactions):
         
 
 
+min_support = 0.6
+min_confidence = 0.8
 file_name = "Horizontal_Format.xlsx"
 
 def main():
     df = pd.read_excel(file_name)
     total_transactions = df.shape[0]
+
     vertical_data = convert_to_vertical_format(df)
-
-    while True:
-        min_support = float(input("\nEnter minimum support (0 to 1, e.g. 0.6): "))
-        min_confidence = float(input("Enter minimum confidence (0 to 1, e.g. 0.6): "))
-
-        frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support, total_transactions)
-        association_rules = generate_association_rules(frequent_itemsets)
-        strong_rules = extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
-        calculate_lift(association_rules, frequent_itemsets, total_transactions)
-
-        again = input("\nRun again with different values? (y/n): ").strip().lower()
-        if again != "y":
-            break
+    frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support,total_transactions)
+    association_rules = generate_association_rules(frequent_itemsets)
+    strong_rules = extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
+    # Replace the first parameter by strong_rules to calculate the lift for only strong rules
+    calculate_lift(association_rules, frequent_itemsets, total_transactions)
 
 main()
