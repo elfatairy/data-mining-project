@@ -1,5 +1,96 @@
 import pandas as pd
 import math
+import re
+
+def clean_cell(value):
+    if pd.isna(value):
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)           # Change 1.0 to 1
+    return str(value).strip()
+
+
+def split_cell(text):       # Ex.:- ' I1, I2,,I5, ' => ['I1', 'I2', 'I5']
+    pieces = text.split(",")
+    parts = []
+    for p in pieces:
+        clean = p.strip()
+        parts.append(clean)
+    result = []
+    for p in parts:
+        if p:
+            result.append(p)
+    return result
+
+
+def convert_tids_to_numbers(tids):
+    matches = []
+    for tid in tids:
+        result = re.fullmatch(r"(\D*)(\d+)", tid)
+        matches.append(result)
+
+    if all(matches):                   
+        letters = set()                
+        for m in matches:
+            letters.add(m.group(1))    
+        if len(letters) == 1:
+              numbers = []
+              for m in matches:
+                  numbers.append(int(m.group(2)))
+              if len(set(numbers)) == len(numbers):
+                 return numbers
+
+    numbers = list(range(1, len(tids) + 1))
+    print("TIDs were replaced with numbers:", dict(zip(tids, numbers)))
+    return numbers
+
+
+def clean_data(df):
+    if df.shape[1] < 2:
+        raise ValueError("The file needs two columns: TiD and items.")
+    
+    transactions = {}
+
+    for i in range(len(df)):
+        tid = clean_cell(df.iloc[i, 0])
+        text = clean_cell(df.iloc[i, 1])
+
+        if not tid and not text:        
+            continue
+        if not tid:
+            raise ValueError(f"A row has an empty Transaction ID: {text}")
+
+        items = transactions.setdefault(tid, [])
+        items.extend(split_cell(text))
+
+    if not transactions:
+        raise ValueError("The file has no transactions.")
+
+    numbers = convert_tids_to_numbers(list(transactions))
+
+    rows = [(number, ",".join(items))
+            for number, items in zip(numbers, transactions.values()) if items]
+
+    return pd.DataFrame(rows, columns=["TiD", "items"]), len(transactions)
+
+
+def calc_min_support_count(min_support, total_transactions):
+    return max(1, math.ceil(round(min_support * total_transactions, 9)))
+
+
+def ask_ratio(message):
+    while True:
+        text = input(message).strip()
+        try:
+            value = float(text.rstrip("%"))
+        except ValueError:
+            value = 0
+        if text.endswith("%") or value > 1:
+            value /= 100
+        if 0 < value <= 1:
+            return value
+        print("Enter a value such as 0.6 or 60%.")
+
 
 def convert_to_vertical_format(df):
     vv = {}
@@ -23,48 +114,32 @@ def convert_to_vertical_format(df):
     return vv
 
 
-def generate_frequent_itemsets(vertical_data, min_support,total_transactions):
-   
-    min_support_count = math.ceil(round(min_support * total_transactions, 10))
-
+def generate_frequent_itemsets(vertical_data, min_support_count,total_transactions):
     frequent_itemsets = {}
     items = sorted(vertical_data.items())
 
-    # inner function of eclat
     def eclat(prefix, items):
-
         for i in range(len(items)):
-
             item, tids = items[i]
-
-            # Extend the current prefix
             new_itemset = prefix + (item,)
-
             support_count = len(tids)
 
-            # Save the frequent itemset
             frequent_itemsets[frozenset(new_itemset)] = {
                 "tids": tids, 
                 "support_count": support_count
             }
 
-            # Generate possible extensions
             extensions = []
-
-            for j in range(i + 1, len(items)):
-                
+            for j in range(i + 1, len(items)):                
                 next_item, next_tids = items[j]
                 intersection = tids & next_tids
 
-                # Keep only frequent extensions
                 if len(intersection) >= min_support_count:
                     extensions.append((next_item, intersection))
 
-            #  generate larger itemsets using recursion
             if extensions:
                 eclat(new_itemset, extensions)
 
-    # Start the algorithm for items with the min support only
     eclat((), [
         (item, tids)
         for item, tids in items
@@ -72,24 +147,14 @@ def generate_frequent_itemsets(vertical_data, min_support,total_transactions):
     ])
 
     print("\nFrequent Itemsets:")
-
-    max_length = max(
-        (len(itemset) for itemset in frequent_itemsets),
-        default=0
-    )
+    max_length = max((len(itemset) for itemset in frequent_itemsets),default=0)
 
     for k in range(1, max_length + 1):
-
         print(f"\nL{k}:")
 
         for itemset, data in frequent_itemsets.items():
-
             if len(itemset) == k:
-                print(
-                    set(itemset),
-                    ":", data["tids"],
-                    "Support count =", data["support_count"]
-                )
+                print(set(itemset),":", data["tids"],"Support count =", data["support_count"])
 
     return frequent_itemsets
 
@@ -100,28 +165,25 @@ def my_combinations(items, r):
             result.append(tuple(current))
             return
 
-        # test from start of the list
         for i in range(start, len(items)):
-            current.append(items[i])      # get element
-            pick(i + 1, current)          # the next element
-            current.pop()                 # backtracking
+            current.append(items[i])
+            pick(i + 1, current)      
+            current.pop()
 
     pick(0, [])
     return result
 
 def generate_association_rules(frequent_itemsets):
-    # Will Start from L2
     rules = []
     print(f"\nAssociation Rules:\n")
     for itemset, data in frequent_itemsets.items():
-        # if L1 ignore
         if len(itemset) < 2:
             continue
-        # L2 or more
+        
         for n in range(1 , len(itemset)):
-            for l in my_combinations(sorted(itemset), n):         # Take Combinations from the item set at size n
-                antecedent = frozenset(l)                      # convert to set to make subtraction
-                consequent = itemset - antecedent              # antecedent - > Condition      consequent -> result
+            for l in my_combinations(sorted(itemset), n):
+                antecedent = frozenset(l)
+                consequent = itemset - antecedent
                 print(set(antecedent), "->", set(consequent))
                 rules.append({"antecedent": antecedent, "consequent": consequent , "support": data["support_count"]}) # association rules antecedent given that consequent
     return rules
@@ -159,21 +221,28 @@ def calculate_lift(association_rules, frequent_itemsets, total_transactions):
             
         print(set(antecedent), "->", set(consequent),"with lift =", lift,"(",status,")")
         
-
-
-min_support = 0.6
-min_confidence = 0.8
+        
 file_name = "Horizontal_Format.xlsx"
 
 def main():
-    df = pd.read_excel(file_name)
-    total_transactions = df.shape[0]
+    try:
+        df, total_transactions = clean_data(pd.read_excel(file_name))
+    except (OSError, ValueError, ImportError) as error:
+        print("Error:", error)
+        return
 
     vertical_data = convert_to_vertical_format(df)
-    frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support,total_transactions)
-    association_rules = generate_association_rules(frequent_itemsets)
-    strong_rules = extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
-    # Replace the first parameter by strong_rules to calculate the lift for only strong rules
-    calculate_lift(association_rules, frequent_itemsets, total_transactions)
+    while True:
+        min_support = ask_ratio("\nMinimum support (example 0.6 or 60%): ")
+        min_support_count = calc_min_support_count(min_support, total_transactions)
+        min_confidence = ask_ratio("Minimum confidence (example 0.6 or 60%): ")
+
+        frequent_itemsets = generate_frequent_itemsets(vertical_data, min_support_count, total_transactions)
+        association_rules = generate_association_rules(frequent_itemsets)
+        strong_rules = extract_strong_rules(association_rules, frequent_itemsets, min_confidence)
+        calculate_lift(association_rules, frequent_itemsets, total_transactions)
+
+        if input("\nTry other values? (y/n): ").strip().lower() != "y":
+            break
 
 main()
